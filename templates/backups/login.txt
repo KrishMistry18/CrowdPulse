@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Crowd-Pulse</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="page-background"> <header class="main-header">
+        <a href="#" class="logo">Crowd<span>-</span>Pulse</a>
+    </header>
+
+    <main class="container login-container">
+        <h2>Dashboard Login</h2>
+        <form method="post">
+            <div>
+                <label for="passkey">Passkey</label>
+                <input type="password" id="passkey" name="passkey" placeholder="Enter your passkey" required>
+            </div>
+            <input type="submit" value="Login" class="btn btn-primary">
+        </form>
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+    </main>
+
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload - Crowd-Pulse</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <header class="main-header">
+        <a href="{{ url_for('index') }}" class="logo">Crowd<span>-</span>Pulse</a>
+        <div class="nav-links">
+            <a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+    </header>
+
+    <main class="container">
+        <h2>Upload a Video for Analysis</h2>
+        
+        <form method="post" enctype="multipart/form-data">
+            <div>
+                <label for="video">1. Select Video File (.mp4, .avi)</label>
+                <input type="file" id="video" name="video" accept="video/mp4,video/avi" required>
+            </div>
+            
+            <div>
+                <label for="zones">2. Define Hotzones (as a Python list of lists)</label>
+                <textarea id="zones" name="zones" rows="8" required>[[[0, 540], [1920, 540], [1920, 1080], [0, 1080]]]</textarea>
+                <p style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">
+                    <strong>Example:</strong> <code>[[[100, 100], [500, 100], [500, 500]]]</code>
+                </p>
+            </div>
+            
+            <div>
+                <input type="submit" value="Process and Launch Dashboard" class="btn btn-success">
+            </div>
+        </form>
+    </main>
+    
+    <footer class="footer-text">
+        &copy; 2025 Crowd-Pulse Project. All rights reserved.
+    </footer>
+
+</body>
+</html>

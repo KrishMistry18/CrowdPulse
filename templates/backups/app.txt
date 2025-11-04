@@ -1,0 +1,104 @@
+from flask import Flask, render_template, request, redirect, url_for, session, Response
+from werkzeug.utils import secure_filename
+import os
+import numpy as np
+import ast # Used to safely parse the text coordinates
+
+# Import our refactored processing function
+from main_web import process_video_stream
+
+app = Flask(__name__)
+
+# --- Configuration ---
+app.config['SECRET_KEY'] = 'your_super_secret_key' # Change this
+app.config['UPLOAD_FOLDER'] = 'uploads/'
+FIXED_PASSKEY = '12345' # Your fixed passkey
+# Ensure the upload folder exists
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# --- Global variables to store processing info ---
+# This simple setup only supports one user at a time.
+current_video_path = None
+current_zone_polygons = None
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        if request.form['passkey'] == FIXED_PASSKEY:
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        else:
+            error = 'Invalid Passkey. Please try again.'
+    return render_template('login.html', error=error)
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
+
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        # --- 1. Handle File Upload ---
+        if 'video' not in request.files:
+            return 'No video file part', 400
+        file = request.files['video']
+        if file.filename == '':
+            return 'No selected file', 400
+        
+        if file:
+            filename = secure_filename(file.filename)
+            video_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(video_path)
+            
+            # --- 2. Handle Zone Coordinates ---
+            zone_text = request.form.get('zones')
+            try:
+                # Use ast.literal_eval to safely parse the string as Python code
+                # e.g., "[[[0,0], [100,0], [100,100], [0,100]]]"
+                zone_list = ast.literal_eval(zone_text)
+                # Convert to NumPy arrays
+                zone_polygons = [np.array(zone) for zone in zone_list]
+            except Exception as e:
+                print(f"Error parsing zones: {e}")
+                return 'Invalid zone format. Must be a list of lists of points.', 400
+
+            # --- 3. Store info and redirect to dashboard ---
+            global current_video_path, current_zone_polygons
+            current_video_path = video_path
+            current_zone_polygons = zone_polygons
+            
+            return redirect(url_for('dashboard'))
+
+    return render_template('index.html')
+
+@app.route('/dashboard')
+def dashboard():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    if not current_video_path or not current_zone_polygons:
+        return 'No video processed. Please upload a video first.', 400
+        
+    return render_template('dashboard.html')
+
+@app.route('/video_feed')
+def video_feed():
+    if not session.get('logged_in'):
+        return 'Unauthorized', 401
+    if not current_video_path or not current_zone_polygons:
+        return 'No video configured', 404
+
+    # This is the streaming part.
+    # We return a 'Response' object that streams the output of our generator
+    return Response(
+        process_video_stream(current_video_path, current_zone_polygons),
+        mimetype='multipart/x-mixed-replace; boundary=frame'
+    )
+
+if __name__ == '__main__':
+    # We use threaded=True to handle the stream and the web page at the same time
+    app.run(debug=True, threaded=True)

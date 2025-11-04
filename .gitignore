@@ -1,0 +1,25 @@
+# Python Virtual Environment
+# This folder is huge and specific to your machine
+venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# AI Models
+# These are too large for Git. Add a README telling
+# people to download them manually.
+*.pt
+
+# User-uploaded content
+# This folder should be empty in the repo
+uploads/
+
+# Generated output files
+# These are results, not part of the source code
+outputs/
+crowd_analysis_output.mp4
+crowd_data_log.csv
+
+# IDE specific
+.vscode/

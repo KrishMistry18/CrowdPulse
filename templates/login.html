@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Crowd-Pulse</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-page-background"> 
+    
+    <header class="main-header">
+        <a href="#" class="logo">Crowd<span>-</span>Pulse</a>
+    </header>
+
+    <main class="container login-container">
+        
+        <div class="login-icon">
+            <i class="fas fa-shield-alt"></i>
+        </div>
+        
+        <h2>Crowd-Pulse Dashboard Login</h2>
+        
+        <p class="login-description">
+            Please log in to access the real-time crowd analytics and anomaly detection dashboard.
+        </p>
+        
+        <form method="post">
+            <div>
+                <label for="passkey">Passkey</label>
+                <input type="password" id="passkey" name="passkey" placeholder="Enter your passkey" required>
+            </div>
+            <input type="submit" value="Login" class="btn btn-primary">
+        </form>
+        
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+    </main>
+    
+    <footer class="footer-text">
+        &copy; 2025 Crowd-Pulse Project. All rights reserved.
+    </footer>
+
+</body>
+</html>
