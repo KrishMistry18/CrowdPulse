@@ -2,9 +2,6 @@
 
 A full-stack web application built with Flask and YOLOv8 to analyze crowd behavior in real-time. This system detects, tracks, and analyzes crowd density, speed, and directional chaos to provide early warnings for potential stampedes.
 
-![Screenshot of Dashboard](link-to-a-screenshot-of-your-dashboard.png)
-*(Tip: Take a screenshot of your dashboard, add it to your folder, and change the link)*
-
 ## ✨ Core Features
 * **Secure Web Dashboard:** A Flask-based web app with a passkey-protected login.
 * **Dynamic "Hotspot" Zones:** Users can upload any video and define custom regions of interest.
