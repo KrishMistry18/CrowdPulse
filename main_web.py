@@ -314,11 +314,8 @@ def _process_video_stream_worker(video_path):
 
     cap.release()
     
-    # Send final "PROCESSING COMPLETED" frame
+    # Send final "PROCESSING COMPLETED" frame without text overlay
     if annotated_frame is not None:
-        cv2.putText(annotated_frame, "PROCESSING COMPLETED", (50, frame_height // 2), cv2.FONT_HERSHEY_SIMPLEX, 3, (0,0,0), 10, cv2.LINE_AA)
-        cv2.putText(annotated_frame, "PROCESSING COMPLETED", (50, frame_height // 2), cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 255, 0), 5, cv2.LINE_AA)
-        
         current_live_stats["status_text"] = "PROCESSING COMPLETED"
         current_live_stats["is_warning"] = False
         current_live_stats["is_critical"] = False
