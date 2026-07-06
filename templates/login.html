@@ -4,42 +4,113 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Crowd-Pulse</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        base: {
+                            900: '#0f1115',
+                            800: '#16191f',
+                            700: '#22262f',
+                        },
+                        accent: {
+                            DEFAULT: '#10b981',
+                            hover: '#059669',
+                        }
+                    },
+                    keyframes: {
+                        shimmer: {
+                            '100%': { transform: 'translateX(100%)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .login-bg-image {
+            background-image: url("/static/cctv_crowd_bg.jpg");
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
 </head>
-<body class="login-page-background"> 
-    
-    <header class="main-header">
-        <a href="#" class="logo">Crowd<span>-</span>Pulse</a>
+<body class="bg-base-900 text-gray-200 font-sans min-h-screen flex flex-col antialiased selection:bg-accent selection:text-white">
+
+    <!-- Top Navbar -->
+    <header class="w-full border-b border-white/5 bg-base-900/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+            <a href="#" class="text-xl font-bold tracking-tight flex items-center gap-3 group">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-emerald-700 flex items-center justify-center shadow-lg shadow-accent/20 group-hover:shadow-accent/40 transition-all">
+                    <i class="fa-solid fa-users-viewfinder text-white text-sm"></i>
+                </div>
+                <span class="text-gray-100">Crowd<span class="text-accent">-</span>Pulse</span>
+            </a>
+        </div>
     </header>
 
-    <main class="container login-container">
-        
-        <div class="login-icon">
-            <i class="fas fa-shield-alt"></i>
-        </div>
-        
-        <h2>Crowd-Pulse Dashboard Login</h2>
-        
-        <p class="login-description">
-            Please log in to access the real-time crowd analytics and anomaly detection dashboard.
-        </p>
-        
-        <form method="post">
-            <div>
-                <label for="passkey">Passkey</label>
-                <input type="password" id="passkey" name="passkey" placeholder="Enter your passkey" required>
+    <!-- Main Content -->
+    <main class="flex-grow flex items-center justify-center p-6 sm:p-12 relative login-bg-image">
+        <!-- Background Dimming Overlay -->
+        <div class="absolute inset-0 bg-base-900/80 z-0"></div>
+
+        <div class="w-full max-w-md z-10">
+            <!-- Glass Card -->
+            <div class="bg-base-800/70 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 p-8 sm:p-10 relative overflow-hidden">
+                <!-- Inner Decorative Glow -->
+                <div class="absolute -top-40 -left-40 w-80 h-80 bg-accent/10 rounded-full blur-3xl pointer-events-none"></div>
+                
+                <div class="text-center mb-8 relative z-10">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent/10 text-accent mb-6 border border-accent/20 shadow-lg shadow-accent/10">
+                        <i class="fa-solid fa-shield-halved text-2xl"></i>
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-semibold text-white tracking-tight mb-2">Secure Access</h2>
+                    <p class="text-gray-400 text-sm">Please log in to access the real-time crowd analytics dashboard.</p>
+                </div>
+                
+                <form method="post" class="space-y-6 relative z-10">
+                    <div>
+                        <label for="passkey" class="block text-sm font-medium text-gray-300 mb-2">Security Passkey</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500">
+                                <i class="fa-solid fa-key"></i>
+                            </div>
+                            <input type="password" id="passkey" name="passkey" placeholder="Enter your passkey" required
+                                class="w-full bg-base-900/50 border border-white/10 rounded-xl text-gray-200 text-sm py-3.5 pr-4 pl-11 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all shadow-inner placeholder-gray-600">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="w-full group relative flex items-center justify-center gap-3 bg-accent hover:bg-accent-hover text-white font-medium text-base py-3.5 px-6 rounded-xl transition-all duration-200 shadow-lg shadow-accent/20 hover:shadow-accent/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-base-900 focus:ring-accent overflow-hidden mt-2">
+                        <span class="relative z-10 flex items-center gap-2">
+                            Authenticate <i class="fa-solid fa-arrow-right text-sm group-hover:translate-x-1 transition-transform"></i>
+                        </span>
+                        <!-- Shine effect -->
+                        <div class="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent z-0 pointer-events-none"></div>
+                    </button>
+                </form>
+                
+                {% if error %}
+                    <div class="mt-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-center relative z-10">
+                        <p class="text-red-400 font-medium text-sm"><i class="fa-solid fa-circle-exclamation mr-1.5"></i> {{ error }}</p>
+                    </div>
+                {% endif %}
             </div>
-            <input type="submit" value="Login" class="btn btn-primary">
-        </form>
-        
-        {% if error %}
-            <p class="error">{{ error }}</p>
-        {% endif %}
+        </div>
     </main>
     
-    <footer class="footer-text">
-        &copy; 2025 Crowd-Pulse Project. All rights reserved.
+    <footer class="w-full py-6 text-center text-sm text-gray-500 border-t border-white/5 bg-base-900/90 relative z-10">
+        &copy; 2025 Crowd-Pulse Analytics. All rights reserved.
     </footer>
 
 </body>

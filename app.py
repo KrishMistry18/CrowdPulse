@@ -1,11 +1,32 @@
-from flask import Flask, render_template, request, redirect, url_for, session, Response
+from flask import Flask, render_template, request, redirect, url_for, session, Response, jsonify
 from werkzeug.utils import secure_filename
+import ast
 import os
-import numpy as np
-import ast 
+try:
+    import numpy as np
+    from main_web import start_processing, generate_frames
+except ImportError:
+    import ast # ast is a standard library
+    import time
+    # Mocking numpy and process_video_stream
+    class DummyNp:
+        @staticmethod
+        def array(x):
+            return x
+    np = DummyNp()
+    
+    def start_processing(video_path, zone_polygons):
+        pass
 
-# Import our refactored processing function
-from main_web import process_video_stream
+    def generate_frames():
+        # Yield a simple mock string instead of video frames if cv2 fails
+        while True:
+            yield (b'--frame\r\n'
+                   b'Content-Type: text/plain\r\n\r\n'
+                   b'OpenCV/YOLO missing. Mock stream running.'
+                   b'\r\n')
+            time.sleep(1)
+
 
 app = Flask(__name__)
 
@@ -71,6 +92,8 @@ def index():
             current_video_path = video_path
             current_zone_polygons = zone_polygons
             
+            start_processing(video_path, zone_polygons)
+            
             return redirect(url_for('dashboard'))
 
     return render_template('index.html')
@@ -94,9 +117,20 @@ def video_feed():
     # This is the streaming part.
 
     return Response(
-        process_video_stream(current_video_path, current_zone_polygons),
+        generate_frames(),
         mimetype='multipart/x-mixed-replace; boundary=frame'
     )
+
+@app.route('/api/stats')
+def api_stats():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        from main_web import current_live_stats
+        return jsonify(current_live_stats)
+    except ImportError:
+        return jsonify({"error": "Stats not available"}), 503
 
 if __name__ == '__main__':
 

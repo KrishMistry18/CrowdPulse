@@ -3,28 +3,268 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Crowd-Pulse</title>
+    <title>Live Dashboard - Crowd-Pulse</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        base: {
+                            900: '#0f1115',
+                            800: '#16191f',
+                            700: '#22262f',
+                        },
+                        accent: {
+                            DEFAULT: '#10b981', 
+                            hover: '#059669',
+                        },
+                        status: {
+                            normal: '#10b981', // Emerald
+                            warning: '#f59e0b', // Amber
+                            critical: '#ef4444', // Red
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'ping-slow': 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+<body class="bg-base-900 text-gray-200 font-sans min-h-screen flex flex-col antialiased selection:bg-accent selection:text-white">
 
-    <header class="main-header">
-        <a href="{{ url_for('index') }}" class="logo">Crowd<span>-</span>Pulse</a>
-        <div class="nav-links">
-            <a href="{{ url_for('index') }}">Process Another Video</a>
-            <a href="{{ url_for('logout') }}">Logout</a>
+    <!-- Top Navbar -->
+    <header class="w-full border-b border-white/5 bg-base-900/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between">
+            <a href="{{ url_for('index') }}" class="text-xl font-bold tracking-tight flex items-center gap-3 group">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-emerald-700 flex items-center justify-center shadow-lg shadow-accent/20 group-hover:shadow-accent/40 transition-all">
+                    <i class="fa-solid fa-users-viewfinder text-white text-sm"></i>
+                </div>
+                <span class="text-gray-100">Crowd<span class="text-accent">-</span>Pulse</span>
+            </a>
+            <div class="flex items-center gap-4">
+                <a href="{{ url_for('index') }}" class="text-sm font-medium text-gray-300 hover:text-white transition-colors px-3 py-2 rounded-md hover:bg-white/5 flex items-center gap-2">
+                    <i class="fa-solid fa-video text-gray-400"></i> New Stream
+                </a>
+                <a href="{{ url_for('logout') }}" class="text-sm font-medium text-gray-400 hover:text-white transition-colors flex items-center gap-2 px-3 py-2 rounded-md hover:bg-white/5">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+                </a>
+            </div>
         </div>
     </header>
 
-    <main class="dashboard-container">
-        <div class="dashboard-header">
-            <h2>Live Analysis Stream</h2>
-        </div>
+    <!-- Main Content -->
+    <main class="flex-grow flex flex-col items-center w-full max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-8 relative">
+        <!-- Background decorative elements -->
+        <div class="absolute top-0 right-0 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[120px] pointer-events-none -z-10"></div>
+        <div class="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none -z-10"></div>
         
-        <div class="video-container">
-            <img id="video-stream" src="{{ url_for('video_feed') }}" alt="Video Stream">
+        <div class="w-full mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-semibold text-white tracking-tight flex items-center gap-3">
+                    <span class="relative flex h-3 w-3">
+                        <span class="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-status-normal opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-status-normal"></span>
+                    </span>
+                    Live Analysis Stream
+                </h1>
+                <p class="text-gray-400 text-sm mt-1">Real-time object detection and density mapping active.</p>
+            </div>
+            
+            <div class="flex gap-2">
+                <!-- Status Badge Global -->
+                <div id="global-status" class="px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-semibold flex items-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.15)] transition-colors duration-300">
+                    <i id="global-status-icon" class="fa-solid fa-circle-notch fa-spin"></i> <span id="global-status-text">INITIALIZING</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid Layout: Stream & Stats -->
+        <div class="w-full grid grid-cols-1 xl:grid-cols-4 gap-6">
+            
+            <!-- Video Feed (Takes up 3/4 on large screens) -->
+            <div class="xl:col-span-3">
+                <div class="bg-base-800/40 backdrop-blur-md border border-white/10 rounded-2xl p-2 shadow-2xl overflow-hidden relative group">
+                    <div class="absolute inset-0 bg-gradient-to-t from-base-900/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10 flex items-end p-4">
+                        <span class="text-white/70 text-xs font-mono"><i class="fa-solid fa-video mr-1 text-accent"></i> Feed: Camera-01 (Processed)</span>
+                    </div>
+                    <img id="video-stream" src="{{ url_for('video_feed') }}" alt="Live YOLOv8 Video Stream" class="w-full h-auto rounded-xl object-contain bg-black aspect-video border border-white/5">
+                </div>
+            </div>
+            
+            <!-- Stat Cards Column -->
+            <div class="xl:col-span-1 flex flex-col gap-4">
+                
+                <!-- Density Card -->
+                <div class="bg-base-800/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-lg shadow-black/20 hover:border-white/20 transition-colors">
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 class="text-gray-400 text-sm font-medium">Crowd Density</h3>
+                        <div class="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                            <i class="fa-solid fa-users"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline gap-2 mb-1">
+                        <span id="stat-density" class="text-3xl font-bold text-white tracking-tight font-mono">--</span>
+                        <span class="text-gray-500 text-sm">people</span>
+                    </div>
+                    <div class="flex items-center gap-1 text-xs text-status-normal mt-3">
+                        <i class="fa-solid fa-arrow-trend-down"></i> <span>-12% from last minute</span>
+                    </div>
+                </div>
+                
+                <!-- Speed Card -->
+                <div class="bg-base-800/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-lg shadow-black/20 hover:border-white/20 transition-colors">
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 class="text-gray-400 text-sm font-medium">Avg Flow Speed</h3>
+                        <div class="p-2 rounded-lg bg-accent/10 text-accent">
+                            <i class="fa-solid fa-person-walking"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-baseline gap-2 mb-1">
+                        <span id="stat-speed" class="text-3xl font-bold text-white tracking-tight font-mono">--</span>
+                        <span class="text-gray-500 text-sm">m/s</span>
+                    </div>
+                    <div class="flex items-center gap-1 text-xs text-status-warning mt-3">
+                        <i class="fa-solid fa-minus"></i> <span class="text-gray-400">Stable movement</span>
+                    </div>
+                </div>
+                
+                <!-- Chaos Card -->
+                <div id="chaos-card" class="bg-base-800/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-lg shadow-black/20 relative overflow-hidden group transition-all duration-300">
+                    <div id="chaos-pulse" class="absolute inset-0 bg-transparent pointer-events-none transition-colors duration-300"></div>
+                    <div class="relative z-10">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 id="chaos-title" class="text-gray-400 text-sm font-medium transition-colors">Directional Chaos</h3>
+                            <div id="chaos-icon-bg" class="p-2 rounded-lg bg-gray-500/20 text-gray-400 transition-colors">
+                                <i class="fa-solid fa-arrows-down-to-people"></i>
+                            </div>
+                        </div>
+                        <div class="flex items-baseline gap-2 mb-1">
+                            <span id="stat-chaos" class="text-3xl font-bold text-white tracking-tight font-mono">--</span>
+                            <span class="text-gray-500 text-sm">variance</span>
+                        </div>
+                        <div id="chaos-status" class="flex items-center gap-1 text-xs text-gray-400 mt-3 font-semibold transition-colors">
+                            <i id="chaos-status-icon" class="fa-solid fa-circle-info"></i> <span id="chaos-status-text">Awaiting Data</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <div class="mt-auto pt-4">
+                    <button onclick="alert('Exporting detailed CSV report...')" class="w-full bg-base-800 hover:bg-base-700 text-gray-200 border border-white/10 rounded-xl py-3 px-4 text-sm font-medium transition-all hover:border-white/30 flex items-center justify-center gap-2 group">
+                        <i class="fa-solid fa-download text-gray-400 group-hover:text-accent transition-colors"></i> Export Analytics
+                    </button>
+                </div>
+            </div>
+            
         </div>
     </main>
+    
+    <footer class="w-full py-6 mt-auto text-center text-sm text-gray-600 border-t border-white/5 bg-base-900/50">
+        &copy; 2025 Crowd-Pulse Analytics. Real-time vision processing.
+    </footer>
 
+    <script>
+        function updateStats() {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) return;
+                    
+                    document.getElementById('stat-density').textContent = data.total_count;
+                    document.getElementById('stat-speed').textContent = data.avg_speed.toFixed(2);
+                    document.getElementById('stat-chaos').textContent = data.chaos_metric.toFixed(2);
+
+                    const globalStatus = document.getElementById('global-status');
+                    const globalStatusIcon = document.getElementById('global-status-icon');
+                    const globalStatusText = document.getElementById('global-status-text');
+                    
+                    const chaosCard = document.getElementById('chaos-card');
+                    const chaosPulse = document.getElementById('chaos-pulse');
+                    const chaosTitle = document.getElementById('chaos-title');
+                    const chaosIconBg = document.getElementById('chaos-icon-bg');
+                    const chaosStatus = document.getElementById('chaos-status');
+                    const chaosStatusIcon = document.getElementById('chaos-status-icon');
+                    const chaosStatusText = document.getElementById('chaos-status-text');
+
+                    globalStatusText.textContent = "SYSTEM " + data.status_text;
+
+                    // Reset classes
+                    globalStatus.className = "px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 transition-colors duration-300 ";
+                    chaosCard.className = "backdrop-blur-xl border rounded-2xl p-6 relative overflow-hidden group transition-all duration-300 ";
+                    chaosPulse.className = "absolute inset-0 pointer-events-none transition-colors duration-300 ";
+                    chaosTitle.className = "text-sm font-medium transition-colors ";
+                    chaosIconBg.className = "p-2 rounded-lg transition-colors ";
+                    chaosStatus.className = "flex items-center gap-1 text-xs mt-3 font-semibold transition-colors ";
+                    
+                    if (data.status_text.startsWith("CALIBRATING") || data.status_text === "WAITING") {
+                        globalStatus.className += "bg-blue-500/10 border-blue-500/20 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.15)]";
+                        globalStatusIcon.className = "fa-solid fa-circle-notch fa-spin";
+                        
+                        chaosCard.className += "bg-base-800/60 border-white/10 shadow-lg shadow-black/20";
+                        chaosPulse.className += "bg-transparent";
+                        chaosTitle.className += "text-gray-400";
+                        chaosIconBg.className += "bg-gray-500/20 text-gray-400";
+                        chaosStatus.className += "text-gray-400";
+                        chaosStatusIcon.className = "fa-solid fa-circle-info";
+                        chaosStatusText.textContent = "Analyzing baseline...";
+                        
+                    } else if (data.is_critical) {
+                        globalStatus.className += "bg-status-critical/10 border-status-critical/20 text-status-critical shadow-[0_0_15px_rgba(239,68,68,0.15)]";
+                        globalStatusIcon.className = "fa-solid fa-triangle-exclamation animate-pulse";
+                        
+                        chaosCard.className += "bg-status-critical/5 border-status-critical/30 shadow-[0_0_20px_rgba(239,68,68,0.15)]";
+                        chaosPulse.className += "bg-status-critical/10 animate-pulse-slow";
+                        chaosTitle.className += "text-status-critical";
+                        chaosIconBg.className += "bg-status-critical/20 text-status-critical shadow-lg shadow-status-critical/20";
+                        chaosStatus.className += "text-status-critical";
+                        chaosStatusIcon.className = "fa-solid fa-triangle-exclamation animate-bounce";
+                        chaosStatusText.textContent = "HIGH PANIC DETECTED";
+                        
+                    } else if (data.is_warning) {
+                        globalStatus.className += "bg-status-warning/10 border-status-warning/20 text-status-warning shadow-[0_0_15px_rgba(245,158,11,0.15)]";
+                        globalStatusIcon.className = "fa-solid fa-triangle-exclamation";
+                        
+                        chaosCard.className += "bg-status-warning/5 border-status-warning/30 shadow-[0_0_20px_rgba(245,158,11,0.15)]";
+                        chaosPulse.className += "bg-status-warning/5";
+                        chaosTitle.className += "text-status-warning";
+                        chaosIconBg.className += "bg-status-warning/20 text-status-warning";
+                        chaosStatus.className += "text-status-warning";
+                        chaosStatusIcon.className = "fa-solid fa-circle-exclamation";
+                        chaosStatusText.textContent = "ELEVATED CHAOS";
+                    } else {
+                        globalStatus.className += "bg-status-normal/10 border-status-normal/20 text-status-normal shadow-[0_0_15px_rgba(16,185,129,0.15)]";
+                        globalStatusIcon.className = "fa-solid fa-shield-check";
+                        
+                        chaosCard.className += "bg-base-800/60 border-white/10 shadow-lg shadow-black/20 hover:border-white/20";
+                        chaosPulse.className += "bg-transparent";
+                        chaosTitle.className += "text-gray-400";
+                        chaosIconBg.className += "bg-status-normal/10 text-status-normal";
+                        chaosStatus.className += "text-status-normal";
+                        chaosStatusIcon.className = "fa-solid fa-check";
+                        chaosStatusText.textContent = "Normal movement";
+                    }
+                })
+                .catch(err => console.error("Error fetching stats:", err));
+        }
+
+        setInterval(updateStats, 1000);
+        // Initial fetch
+        updateStats();
+    </script>
 </body>
 </html>

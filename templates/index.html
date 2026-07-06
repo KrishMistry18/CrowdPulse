@@ -4,44 +4,226 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upload - Crowd-Pulse</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        base: {
+                            900: '#0f1115', // Deep charcoal
+                            800: '#16191f',
+                            700: '#22262f',
+                        },
+                        accent: {
+                            DEFAULT: '#10b981', // Emerald green
+                            hover: '#059669',
+                        }
+                    },
+                    keyframes: {
+                        shimmer: {
+                            '100%': { transform: 'translateX(100%)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+<body class="bg-base-900 text-gray-200 font-sans min-h-screen flex flex-col antialiased selection:bg-accent selection:text-white">
 
-    <header class="main-header">
-        <a href="{{ url_for('index') }}" class="logo">Crowd<span>-</span>Pulse</a>
-        <div class="nav-links">
-            <a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    <!-- Top Navbar -->
+    <header class="w-full border-b border-white/5 bg-base-900/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+            <a href="{{ url_for('index') }}" class="text-xl font-bold tracking-tight flex items-center gap-3 group">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-emerald-700 flex items-center justify-center shadow-lg shadow-accent/20 group-hover:shadow-accent/40 transition-all">
+                    <i class="fa-solid fa-users-viewfinder text-white text-sm"></i>
+                </div>
+                <span class="text-gray-100">Crowd<span class="text-accent">-</span>Pulse</span>
+            </a>
+            <div class="flex items-center gap-4">
+                <a href="{{ url_for('logout') }}" class="text-sm font-medium text-gray-400 hover:text-white transition-colors flex items-center gap-2 px-3 py-2 rounded-md hover:bg-white/5">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Logout
+                </a>
+            </div>
         </div>
     </header>
 
-    <main class="container">
-        <h2>Upload a Video for Analysis</h2>
-        
-        <form method="post" enctype="multipart/form-data">
-            <div>
-                <label for="video">1. Select Video File (.mp4, .avi)</label>
-                <input type="file" id="video" name="video" accept="video/mp4,video/avi" required>
+    <!-- Main Content -->
+    <main class="flex-grow flex items-center justify-center p-6 sm:p-12 relative">
+        <!-- Background decorative elements -->
+        <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-accent/5 rounded-full blur-[100px] pointer-events-none"></div>
+        <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-[100px] pointer-events-none"></div>
+
+        <div class="w-full max-w-2xl z-10">
+            <!-- Glass Card -->
+            <div class="bg-base-800/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50 p-8 sm:p-10 relative overflow-hidden">
+                <!-- Inner Decorative Glow -->
+                <div class="absolute -top-40 -right-40 w-80 h-80 bg-accent/10 rounded-full blur-3xl pointer-events-none"></div>
+                
+                <h2 class="text-2xl sm:text-3xl font-semibold text-white mb-2 tracking-tight">New Analysis</h2>
+                <p class="text-gray-400 mb-8 text-sm sm:text-base">Upload a CCTV or drone video feed to begin real-time crowd tracking.</p>
+                
+                <form id="upload-form" method="post" enctype="multipart/form-data" class="space-y-8 relative z-10">
+                    
+                    <!-- 1. Drag & Drop Upload -->
+                    <div class="space-y-3">
+                        <label class="block text-sm font-medium text-gray-300">1. Video Source <span class="text-gray-500 font-normal">(.mp4, .avi)</span></label>
+                        
+                        <div id="dropzone" class="relative group cursor-pointer flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-600/50 rounded-xl bg-base-900/50 hover:bg-base-900 hover:border-accent/50 transition-all duration-200">
+                            <input type="file" id="video" name="video" accept="video/mp4,video/avi" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
+                            <div class="flex flex-col items-center space-y-3 pointer-events-none text-center px-4">
+                                <div id="upload-icon" class="w-12 h-12 rounded-full bg-base-800 border border-white/5 flex items-center justify-center group-hover:scale-110 group-hover:bg-accent/10 group-hover:border-accent/20 transition-all duration-300">
+                                    <i class="fa-solid fa-cloud-arrow-up text-xl text-gray-400 group-hover:text-accent transition-colors"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-200" id="file-name-display">Click to upload or drag and drop</p>
+                                    <p class="text-xs text-gray-500 mt-1">MP4 or AVI (Max 500MB)</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 2. Define Hotzones -->
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-end">
+                            <label for="zones" class="block text-sm font-medium text-gray-300">2. Define Hotzones</label>
+                            <button type="button" id="copy-example" class="text-xs text-gray-400 hover:text-accent transition-colors flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/5">
+                                <i class="fa-regular fa-copy"></i> Copy Example
+                            </button>
+                        </div>
+                        <div class="relative group">
+                            <!-- Line numbers fake background -->
+                            <div class="absolute left-0 top-0 bottom-0 w-10 bg-base-900/80 border-r border-white/5 rounded-l-xl z-0 pointer-events-none flex flex-col pt-4 items-center text-xs text-gray-600 font-mono">
+                                <span>1</span><span>2</span><span>3</span>
+                            </div>
+                            <textarea id="zones" name="zones" rows="4" required spellcheck="false"
+                                class="w-full bg-base-900/50 border border-white/10 rounded-xl text-accent font-mono text-sm py-4 pr-4 pl-14 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all shadow-inner placeholder-gray-600 resize-y relative z-10 block"
+                            >[
+  [[0, 0], [640, 0], [640, 1080], [0, 1080]],
+  [[640, 0], [1280, 0], [1280, 1080], [640, 1080]],
+  [[1280, 0], [1920, 0], [1920, 1080], [1280, 1080]]
+]</textarea>
+                        </div>
+                        <p class="text-xs text-gray-500">Provide a Python list of lists representing polygonal regions of interest.</p>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <div class="pt-4">
+                        <button type="submit" id="submit-btn" class="w-full group relative flex items-center justify-center gap-3 bg-accent hover:bg-accent-hover text-white font-medium text-base py-3.5 px-6 rounded-xl transition-all duration-200 shadow-lg shadow-accent/20 hover:shadow-accent/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-base-900 focus:ring-accent overflow-hidden">
+                            <span id="btn-text" class="relative z-10 flex items-center gap-2">
+                                Process & Launch Dashboard <i class="fa-solid fa-arrow-right text-sm group-hover:translate-x-1 transition-transform"></i>
+                            </span>
+                            <span id="btn-loader" class="hidden relative z-10 flex items-center gap-2">
+                                <i class="fa-solid fa-circle-notch fa-spin"></i> Initializing Engine...
+                            </span>
+                            <!-- Shine effect -->
+                            <div class="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent z-0 pointer-events-none"></div>
+                        </button>
+                    </div>
+                </form>
             </div>
-            
-            <div>
-                <label for="zones">2. Define Hotzones (as a Python list of lists)</label>
-                <textarea id="zones" name="zones" rows="8" required>[[[0, 540], [1920, 540], [1920, 1080], [0, 1080]]]</textarea>
-                <p style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">
-                    <strong>Example:</strong> <code>[[[100, 100], [500, 100], [500, 500]]]</code>
-                </p>
-            </div>
-            
-            <div>
-                <input type="submit" value="Process and Launch Dashboard" class="btn btn-success">
-            </div>
-        </form>
+        </div>
     </main>
     
-    <footer class="footer-text">
-        &copy; 2025 Crowd-Pulse Project. All rights reserved.
+    <footer class="w-full py-6 text-center text-sm text-gray-500 border-t border-white/5 bg-base-900/50">
+        &copy; 2025 Crowd-Pulse Analytics. All rights reserved.
     </footer>
 
+    <!-- Interactive JS -->
+    <script>
+        // File upload handling
+        const fileInput = document.getElementById('video');
+        const dropzone = document.getElementById('dropzone');
+        const fileNameDisplay = document.getElementById('file-name-display');
+        const uploadIcon = document.getElementById('upload-icon');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropzone.classList.add('border-accent/50', 'bg-base-900');
+            dropzone.classList.remove('border-gray-600/50');
+        }
+
+        function unhighlight(e) {
+            dropzone.classList.remove('border-accent/50', 'bg-base-900');
+            dropzone.classList.add('border-gray-600/50');
+        }
+
+        dropzone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            let dt = e.dataTransfer;
+            let files = dt.files;
+            if(files.length) {
+                fileInput.files = files;
+                updateFileName();
+            }
+        }
+
+        fileInput.addEventListener('change', updateFileName);
+
+        function updateFileName() {
+            if (fileInput.files.length > 0) {
+                const name = fileInput.files[0].name;
+                fileNameDisplay.textContent = name;
+                fileNameDisplay.classList.add('text-accent');
+                fileNameDisplay.classList.remove('text-gray-200');
+                uploadIcon.innerHTML = '<i class="fa-solid fa-file-video text-xl text-accent"></i>';
+                uploadIcon.classList.add('bg-accent/10', 'border-accent/20');
+                uploadIcon.classList.remove('bg-base-800', 'border-white/5');
+            }
+        }
+
+        // Copy example
+        document.getElementById('copy-example').addEventListener('click', () => {
+            navigator.clipboard.writeText('[[[0, 0], [640, 0], [640, 1080], [0, 1080]], [[640, 0], [1280, 0], [1280, 1080], [640, 1080]], [[1280, 0], [1920, 0], [1920, 1080], [1280, 1080]]]');
+            const btn = document.getElementById('copy-example');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check text-accent"></i> Copied!';
+            btn.classList.add('text-gray-200');
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.classList.remove('text-gray-200');
+            }, 2000);
+        });
+
+        // Form submit loading state
+        document.getElementById('upload-form').addEventListener('submit', function() {
+            const btnText = document.getElementById('btn-text');
+            const btnLoader = document.getElementById('btn-loader');
+            const submitBtn = document.getElementById('submit-btn');
+            
+            btnText.classList.add('hidden');
+            btnLoader.classList.remove('hidden');
+            submitBtn.classList.add('opacity-90', 'cursor-wait');
+        });
+    </script>
 </body>
 </html>

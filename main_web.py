@@ -4,12 +4,62 @@ from ultralytics import YOLO
 import supervision as sv
 from collections import defaultdict
 import math
+import threading
+import time
 
 # --- Configuration ---
 MODEL_NAME = 'yolov8m.pt' 
 CALIBRATION_FRAMES = 150 
 
-def process_video_stream(video_path, zone_polygons):
+current_live_stats = {
+    "total_count": 0,
+    "avg_speed": 0.0,
+    "chaos_metric": 0.0,
+    "status_text": "WAITING",
+    "is_warning": False,
+    "is_critical": False
+}
+
+
+current_frame = None
+processing_thread = None
+stop_event = threading.Event()
+
+def start_processing(video_path, zone_polygons):
+    global processing_thread, stop_event, current_frame, current_live_stats
+    if processing_thread is not None and processing_thread.is_alive():
+        stop_event.set()
+        processing_thread.join()
+        
+    stop_event.clear()
+    current_frame = None
+    
+    # Reset stats
+    current_live_stats.update({
+        "total_count": 0,
+        "avg_speed": 0.0,
+        "chaos_metric": 0.0,
+        "status_text": "WAITING",
+        "is_warning": False,
+        "is_critical": False
+    })
+
+    processing_thread = threading.Thread(target=_process_video_stream_worker, args=(video_path, zone_polygons))
+    processing_thread.daemon = True
+    processing_thread.start()
+
+def generate_frames():
+    global current_frame
+    while True:
+        if current_frame is None:
+            time.sleep(0.1)
+            continue
+        yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + 
+               current_frame + b'\r\n')
+        time.sleep(0.03)
+
+def _process_video_stream_worker(video_path, zone_polygons):
+    global current_live_stats, current_frame, stop_event
     
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -45,14 +95,14 @@ def process_video_stream(video_path, zone_polygons):
 
     print("--- Starting Video Stream Processing ---")
 
-    while cap.isOpened():
+    while cap.isOpened() and not stop_event.is_set():
         success, frame = cap.read()
         if not success:
             print("End of video file.")
             break
 
         # --- Run Inference ---
-        results = model(frame, classes=0, verbose=False, device=0, conf=0.25)
+        results = model(frame, classes=0, verbose=False, conf=0.25)
         detections = sv.Detections.from_ultralytics(results[0])
         tracked_detections = tracker.update_with_detections(detections)
 
@@ -139,6 +189,14 @@ def process_video_stream(video_path, zone_polygons):
             if is_critical:
                 status_text = "CRITICAL"
                 status_color = (0, 0, 255) 
+        
+        global current_live_stats
+        current_live_stats["total_count"] = total_count
+        current_live_stats["avg_speed"] = avg_speed
+        current_live_stats["chaos_metric"] = chaos_metric
+        current_live_stats["status_text"] = status_text
+        current_live_stats["is_warning"] = is_warning if 'is_warning' in locals() else False
+        current_live_stats["is_critical"] = is_critical if 'is_critical' in locals() else False
 
         # --- Annotation ---
         # Draw Zones
@@ -170,11 +228,8 @@ def process_video_stream(video_path, zone_polygons):
 
         # Encode the frame as a JPEG
         (flag, encodedImage) = cv2.imencode(".jpg", annotated_frame)
-        if not flag:
-            continue
-        
-        yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + 
-              bytearray(encodedImage) + b'\r\n')
+        if flag:
+            current_frame = bytearray(encodedImage)
 
     cap.release()
     print("--- Video Stream Processing Finished ---")
