@@ -43,6 +43,8 @@ except ImportError:
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads/'
 app.secret_key = os.getenv('SECRET_KEY', 'default_secret_key_if_not_set')
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = True
 FIXED_PASSKEY = '12345' 
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
