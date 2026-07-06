@@ -25,6 +25,57 @@ current_live_stats = {
 current_frame = None
 processing_thread = None
 stop_event = threading.Event()
+calibration_results = None
+
+print("Loading YOLO model globally...")
+yolo_model = YOLO(MODEL_NAME)
+print("YOLO model loaded successfully!")
+
+def run_calibration_scan(video_path):
+    global calibration_results
+    
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        print(f"Error: Could not open video file at {video_path}")
+        return False
+
+    model = yolo_model
+    
+    total_counts = []
+    
+    print("--- Starting Background Calibration Scan ---")
+        
+    frame_count = 0
+    while cap.isOpened() and frame_count < CALIBRATION_FRAMES:
+        success, frame = cap.read()
+        if not success:
+            break
+            
+        results = model(frame, classes=0, verbose=False, conf=0.25)
+        detections = sv.Detections.from_ultralytics(results[0])
+        total_counts.append(len(detections))
+        frame_count += 1
+        
+    cap.release()
+    
+    if not total_counts:
+        avg_total = 0
+    else:
+        avg_total = np.mean(total_counts)
+        
+    # Calculate Dynamic Thresholds based on average total crowd size
+    # Fallback to hardcoded absolute minimums so it doesn't break on sparse videos
+    red_threshold = max(10, int(avg_total * 0.40)) # 40% of average crowd
+    blue_threshold = max(5, int(avg_total * 0.15)) # 15% of average crowd
+    
+    calibration_results = {
+        "avg_total": float(round(avg_total, 1)),
+        "red_threshold": int(red_threshold),
+        "blue_threshold": int(blue_threshold)
+    }
+    
+    print(f"--- Calibration Scan Complete: {calibration_results} ---")
+    return True
 
 def start_processing(video_path):
     global processing_thread, stop_event, current_frame, current_live_stats
@@ -79,7 +130,7 @@ def _process_video_stream_worker(video_path):
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     
-    model = YOLO(MODEL_NAME)
+    model = yolo_model
     tracker = sv.ByteTrack()
 
     # Dynamic clusters instead of static zones
@@ -150,56 +201,21 @@ def _process_video_stream_worker(video_path):
 
         annotated_frame = frame.copy() 
 
-        # --- Calibration & Prediction Logic ---
-        if frame_count < CALIBRATION_FRAMES:
-            status_text = f"CALIBRATING... {frame_count}/{CALIBRATION_FRAMES}"
-            status_color = (0, 255, 255) # Yellow
-
-            # Collect data
-            calibration_data["avg_speeds"].append(avg_speed)
-            calibration_data["total_counts"].append(total_count)
-            calibration_data["chaos_metrics"].append(chaos_metric) 
-            # Collect data
-            calibration_data["avg_speeds"].append(avg_speed)
-            calibration_data["total_counts"].append(total_count)
-            calibration_data["chaos_metrics"].append(chaos_metric) 
-
-            if frame_count == CALIBRATION_FRAMES - 1:
-                # Calculate all baselines
-                baseline_stats["speed_mean"] = np.mean(calibration_data["avg_speeds"])
-                baseline_stats["speed_std"] = np.std(calibration_data["avg_speeds"])
-                baseline_stats["total_mean"] = np.mean(calibration_data["total_counts"])
-                baseline_stats["total_std"] = np.std(calibration_data["total_counts"])
-                baseline_stats["chaos_mean"] = np.mean(calibration_data["chaos_metrics"]) 
-                baseline_stats["chaos_std"] = np.std(calibration_data["chaos_metrics"])
-                print("--- Calibration Complete ---")
-        else:
-            # --- Prediction Phase ---
-            status_text = "NORMAL"
-            status_color = (0, 255, 0) # Green
-            is_warning = False
-            is_critical = False
-
-            # Check for anomalies
-            speed_threshold_warn = baseline_stats["speed_mean"] + 2.0 * baseline_stats["speed_std"]
-            speed_threshold_crit = baseline_stats["speed_mean"] + 3.5 * baseline_stats["speed_std"]
-            total_threshold_warn = baseline_stats["total_mean"] + 2.5 * baseline_stats["total_std"]
-            chaos_threshold_warn = baseline_stats["chaos_mean"] + 2.0 * baseline_stats["chaos_std"]
-            
-            if total_count > total_threshold_warn or avg_speed > speed_threshold_warn:
-                is_warning = True
-            if avg_speed > speed_threshold_crit and chaos_metric > chaos_threshold_warn:
-                is_critical = True
-                is_warning = True 
-
-            # Zone checks are now done dynamically in the rendering loop for individual coloring
-
-            if is_warning:
-                status_text = "WARNING"
-                status_color = (0, 255, 255) 
-            if is_critical:
-                status_text = "CRITICAL"
-                status_color = (0, 0, 255) 
+        # --- Prediction Phase ---
+        status_text = "NORMAL"
+        status_color = (0, 255, 0) # Green
+        is_warning = False
+        is_critical = False
+        
+        if calibration_results and total_count > calibration_results["avg_total"] * 1.5:
+            is_warning = True
+        
+        if is_warning:
+            status_text = "WARNING"
+            status_color = (0, 255, 255) 
+        if is_critical:
+            status_text = "CRITICAL"
+            status_color = (0, 0, 255)  
         
         current_live_stats["total_count"] = total_count
         current_live_stats["avg_speed"] = avg_speed
@@ -223,17 +239,17 @@ def _process_video_stream_worker(video_path):
             max_y = min(frame_height, int(max_y))
             
             # Determine dynamic color based on absolute crowding
-            if frame_count < CALIBRATION_FRAMES:
-                zone_color = (255, 255, 255) # White
+            red_threshold = calibration_results["red_threshold"] if calibration_results else 10
+            blue_threshold = calibration_results["blue_threshold"] if calibration_results else 5
+            
+            if cluster_count >= red_threshold:
+                zone_color = (0, 0, 255) # Red
+                current_live_stats["is_warning"] = True
+                current_live_stats["status_text"] = "WARNING (CLUSTER OVERCROWDED)"
+            elif cluster_count >= blue_threshold:
+                zone_color = (255, 0, 0) # Blue
             else:
-                if cluster_count >= 10:
-                    zone_color = (0, 0, 255) # Red
-                    current_live_stats["is_warning"] = True
-                    current_live_stats["status_text"] = "WARNING (CLUSTER OVERCROWDED)"
-                elif cluster_count >= 5:
-                    zone_color = (255, 0, 0) # Blue
-                else:
-                    zone_color = (0, 255, 0) # Green
+                zone_color = (0, 255, 0) # Green
                     
             # Draw the dynamic bounding box
             cv2.rectangle(annotated_frame, (min_x, min_y), (max_x, max_y), zone_color, 4)

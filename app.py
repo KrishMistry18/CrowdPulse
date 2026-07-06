@@ -2,9 +2,11 @@ from flask import Flask, render_template, request, redirect, url_for, session, R
 from werkzeug.utils import secure_filename
 import ast
 import os
+import threading
 try:
     import numpy as np
-    from main_web import start_processing, generate_frames
+    from main_web import start_processing, generate_frames, run_calibration_scan
+    import main_web
 except ImportError:
     import ast # ast is a standard library
     import time
@@ -17,6 +19,12 @@ except ImportError:
     
     def start_processing(video_path):
         pass
+        
+    def run_calibration_scan(video_path):
+        time.sleep(3) # Mock scan delay
+        import main_web
+        main_web.calibration_results = {"avg_total": 50, "red_threshold": 20, "blue_threshold": 10}
+        return True
 
     def generate_frames():
         # Yield a simple mock string instead of video frames if cv2 fails
@@ -76,12 +84,42 @@ def index():
             
             global current_video_path
             current_video_path = video_path
-        
-            start_processing(video_path)
             
-            return redirect(url_for('dashboard'))
+            import main_web
+            main_web.calibration_results = None # Reset for new video
+            
+            return redirect(url_for('scanning'))
 
     return render_template('index.html')
+
+@app.route('/scanning')
+def scanning():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+    if not current_video_path:
+        return redirect(url_for('index'))
+    return render_template('scan_results.html')
+
+@app.route('/api/start_scan')
+def api_start_scan():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    if not current_video_path:
+        return jsonify({"error": "No video"}), 400
+        
+    import main_web
+    
+    if main_web.calibration_results is None:
+        # Run synchronously to avoid PyTorch threading deadlocks
+        success = run_calibration_scan(current_video_path)
+        if not success:
+            return jsonify({"error": "Scan failed"}), 500
+            
+    return jsonify({
+        "status": "complete",
+        "results": main_web.calibration_results
+    })
 
 @app.route('/dashboard')
 def dashboard():
@@ -89,6 +127,10 @@ def dashboard():
         return redirect(url_for('login'))
     if not current_video_path:
         return 'No video processed. Please upload a video first.', 400
+        
+    import main_web
+    if main_web.processing_thread is None or not main_web.processing_thread.is_alive():
+        start_processing(current_video_path)
         
     return render_template('dashboard.html')
 
