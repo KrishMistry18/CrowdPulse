@@ -174,9 +174,14 @@ def export_csv():
         
         si = io.StringIO()
         cw = csv.writer(si)
-        cw.writerow(['Timestamp', 'Frame', 'Total Count', 'Avg Speed', 'Chaos Metric', 'Status'])
+        cw.writerow(['Timestamp', 'Frame', 'Total Count', 'Avg Speed', 'Chaos Metric', 'Red Zones', 'Blue Zones', 'Green Zones', 'Status'])
         for row in stats_history:
-            cw.writerow([row['time'], row['frame'], row['total_count'], row['avg_speed'], row['chaos_metric'], row['status']])
+            cw.writerow([
+                row['time'], row['frame'], row['total_count'], 
+                row['avg_speed'], row['chaos_metric'], 
+                row.get('red_zones', 0), row.get('blue_zones', 0), row.get('green_zones', 0), 
+                row['status']
+            ])
             
         output = si.getvalue()
         return Response(

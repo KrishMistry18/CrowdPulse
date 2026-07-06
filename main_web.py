@@ -209,33 +209,14 @@ def _process_video_stream_worker(video_path):
         is_warning = False
         is_critical = False
         
-        if calibration_results and total_count > calibration_results["avg_total"] * 1.5:
-            is_warning = True
+        red_zones = 0
+        blue_zones = 0
+        green_zones = 0
         
-        if is_warning:
-            status_text = "WARNING"
-            status_color = (0, 255, 255) 
-        if is_critical:
-            status_text = "CRITICAL"
-            status_color = (0, 0, 255)  
+        # We will determine cluster colors first, then set stats
+        red_threshold = calibration_results["red_threshold"] if calibration_results else 10
+        blue_threshold = calibration_results["blue_threshold"] if calibration_results else 5
         
-        current_live_stats["total_count"] = total_count
-        current_live_stats["avg_speed"] = avg_speed
-        current_live_stats["chaos_metric"] = chaos_metric
-        current_live_stats["status_text"] = status_text
-        current_live_stats["is_warning"] = is_warning if 'is_warning' in locals() else False
-        current_live_stats["is_critical"] = is_critical if 'is_critical' in locals() else False
-
-        stats_history.append({
-            "time": time.time(),
-            "frame": frame_count,
-            "total_count": total_count,
-            "avg_speed": round(avg_speed, 2),
-            "chaos_metric": round(chaos_metric, 2),
-            "status": status_text
-        })
-        frame_count += 1
-
         # --- Annotation ---
         # Draw Dynamic Cluster Zones
         for cid, pts in clusters.items():
@@ -250,18 +231,15 @@ def _process_video_stream_worker(video_path):
             max_x = min(frame_width, int(max_x))
             max_y = min(frame_height, int(max_y))
             
-            # Determine dynamic color based on absolute crowding
-            red_threshold = calibration_results["red_threshold"] if calibration_results else 10
-            blue_threshold = calibration_results["blue_threshold"] if calibration_results else 5
-            
             if cluster_count >= red_threshold:
                 zone_color = (0, 0, 255) # Red
-                current_live_stats["is_warning"] = True
-                current_live_stats["status_text"] = "WARNING (CLUSTER OVERCROWDED)"
+                red_zones += 1
             elif cluster_count >= blue_threshold:
                 zone_color = (255, 0, 0) # Blue
+                blue_zones += 1
             else:
                 zone_color = (0, 255, 0) # Green
+                green_zones += 1
                     
             # Draw the dynamic bounding box
             cv2.rectangle(annotated_frame, (min_x, min_y), (max_x, max_y), zone_color, 4)
@@ -270,6 +248,37 @@ def _process_video_stream_worker(video_path):
             label_text = f"Group: {cluster_count}"
             cv2.putText(annotated_frame, label_text, (min_x, max(30, min_y - 10)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,0), 4)
             cv2.putText(annotated_frame, label_text, (min_x, max(30, min_y - 10)), cv2.FONT_HERSHEY_SIMPLEX, 1, zone_color, 2)
+
+        if red_zones > 0:
+            is_warning = True
+            status_text = "WARNING (CLUSTER OVERCROWDED)"
+            status_color = (0, 255, 255)
+        elif calibration_results and total_count > calibration_results["avg_total"] * 1.5:
+            is_warning = True
+            status_text = "WARNING (HIGH OVERALL DENSITY)"
+            status_color = (0, 255, 255)
+            
+        current_live_stats["total_count"] = total_count
+        current_live_stats["avg_speed"] = avg_speed
+        current_live_stats["chaos_metric"] = chaos_metric
+        current_live_stats["status_text"] = status_text
+        current_live_stats["is_warning"] = is_warning if 'is_warning' in locals() else False
+        current_live_stats["is_critical"] = is_critical if 'is_critical' in locals() else False
+
+        stats_history.append({
+            "time": time.time(),
+            "frame": frame_count,
+            "total_count": total_count,
+            "avg_speed": round(avg_speed, 2),
+            "chaos_metric": round(chaos_metric, 2),
+            "red_zones": red_zones,
+            "blue_zones": blue_zones,
+            "green_zones": green_zones,
+            "status": status_text
+        })
+        frame_count += 1
+
+        # (The cluster drawing was moved above)
 
         # Draw Detections
         labels = [f"#{tracker_id}" for tracker_id in tracked_detections.tracker_id] if tracked_detections.tracker_id is not None else []
@@ -297,4 +306,18 @@ def _process_video_stream_worker(video_path):
             current_frame = bytearray(encodedImage)
 
     cap.release()
+    
+    # Send final "PROCESSING COMPLETED" frame
+    if annotated_frame is not None:
+        cv2.putText(annotated_frame, "PROCESSING COMPLETED", (50, frame_height // 2), cv2.FONT_HERSHEY_SIMPLEX, 3, (0,0,0), 10, cv2.LINE_AA)
+        cv2.putText(annotated_frame, "PROCESSING COMPLETED", (50, frame_height // 2), cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 255, 0), 5, cv2.LINE_AA)
+        
+        current_live_stats["status_text"] = "PROCESSING COMPLETED"
+        current_live_stats["is_warning"] = False
+        current_live_stats["is_critical"] = False
+        
+        (flag, encodedImage) = cv2.imencode(".jpg", annotated_frame)
+        if flag:
+            current_frame = bytearray(encodedImage)
+            
     print("--- Video Stream Processing Finished ---")
