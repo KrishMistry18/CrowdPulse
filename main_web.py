@@ -11,6 +11,7 @@ import scipy.cluster.hierarchy as hcluster
 # --- Configuration ---
 MODEL_NAME = 'yolov8n.pt' 
 CALIBRATION_FRAMES = 15 
+FRAME_SKIP = 3
 
 current_live_stats = {
     "total_count": 0,
@@ -52,15 +53,20 @@ def run_calibration_scan(video_path):
     print("--- Starting Background Calibration Scan ---")
         
     frame_count = 0
-    while cap.isOpened() and frame_count < CALIBRATION_FRAMES:
+    processed_count = 0
+    while cap.isOpened() and processed_count < CALIBRATION_FRAMES:
         success, frame = cap.read()
         if not success:
             break
             
-        results = model(frame, classes=0, verbose=False, conf=0.25)
+        frame_count += 1
+        if frame_count % FRAME_SKIP != 0:
+            continue
+            
+        results = model(frame, classes=0, verbose=False, conf=0.10)
         detections = sv.Detections.from_ultralytics(results[0])
         total_counts.append(len(detections))
-        frame_count += 1
+        processed_count += 1
         
     cap.release()
     
@@ -167,8 +173,12 @@ def _process_video_stream_worker(video_path):
             print("End of video file.")
             break
 
+        frame_count += 1
+        if frame_count % FRAME_SKIP != 0:
+            continue
+
         # --- Run Inference ---
-        results = model(frame, classes=0, verbose=False, conf=0.25)
+        results = model(frame, classes=0, verbose=False, conf=0.10)
         detections = sv.Detections.from_ultralytics(results[0])
         tracked_detections = tracker.update_with_detections(detections)
 
