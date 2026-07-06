@@ -1,3 +1,11 @@
+---
+title: CrowdPulse
+emoji: 🎥
+colorFrom: green
+colorTo: blue
+sdk: docker
+pinned: false
+---
 # Crowd-Pulse: Real-time Crowd Analysis Dashboard
 
 A full-stack web application built with Flask and YOLOv8 to analyze crowd behavior in real-time. This system detects, tracks, and analyzes crowd density, speed, and directional chaos to provide early warnings for potential stampedes.
