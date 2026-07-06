@@ -39,6 +39,11 @@ def run_calibration_scan(video_path):
     if not cap.isOpened():
         print(f"Error: Could not open video file at {video_path}")
         return False
+        
+    global processing_thread, stop_event
+    if processing_thread is not None and processing_thread.is_alive():
+        stop_event.set()
+        processing_thread.join()
 
     model = yolo_model
     
