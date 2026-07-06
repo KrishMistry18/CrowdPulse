@@ -1,8 +1,12 @@
-from flask import Flask, render_template, request, redirect, url_for, session, Response, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, Response, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 import ast
 import os
 import threading
+from dotenv import load_dotenv
+
+load_dotenv()
+
 try:
     import numpy as np
     from main_web import start_processing, generate_frames, run_calibration_scan
@@ -37,10 +41,8 @@ except ImportError:
 
 
 app = Flask(__name__)
-
-# --- Configuration ---
-app.config['SECRET_KEY'] = 'your_super_secret_key' 
 app.config['UPLOAD_FOLDER'] = 'uploads/'
+app.secret_key = os.getenv('SECRET_KEY', 'default_secret_key_if_not_set')
 FIXED_PASSKEY = '12345' 
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -91,6 +93,10 @@ def index():
             return redirect(url_for('scanning'))
 
     return render_template('index.html')
+
+@app.route('/download-sample')
+def download_sample():
+    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), 'Crowd Video.mp4', as_attachment=True)
 
 @app.route('/scanning')
 def scanning():
