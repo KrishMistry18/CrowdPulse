@@ -28,6 +28,16 @@ ENV FLASK_ENV=production
 
 # Command to run the application using Gunicorn for production
 RUN pip install gunicorn
+# Create a non-root user with uid 1000 (required by Hugging Face)
+RUN useradd -m -u 1000 user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH
+
+# Change ownership of the app directory to the new user
+RUN chown -R user:user /app
+
+# Switch to the non-root user
+USER user
 
 # Run gunicorn bound to the dynamic PORT or default 7860
-CMD gunicorn --bind 0.0.0.0:${PORT:-7860} app:app --timeout 120 --workers 1 --threads 2
+CMD gunicorn --bind 0.0.0.0:${PORT:-7860} --error-logfile - --access-logfile - app:app --timeout 120 --workers 1 --threads 2
