@@ -19,16 +19,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code
 COPY . .
 
-# Expose port 5000 (Render uses PORT env variable, we'll bind to 0.0.0.0:PORT)
-EXPOSE 5000
+# Expose port 7860 (Hugging Face Spaces default)
+EXPOSE 7860
 
 # Set environment variables
 ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
 
 # Command to run the application using Gunicorn for production
-# Install gunicorn just in case (or add to requirements.txt)
 RUN pip install gunicorn
 
-# Run gunicorn bound to the dynamic PORT provided by Render or default 5000
-CMD gunicorn --bind 0.0.0.0:${PORT:-5000} app:app --timeout 120 --workers 1 --threads 2
+# Run gunicorn bound to the dynamic PORT or default 7860
+CMD gunicorn --bind 0.0.0.0:${PORT:-7860} app:app --timeout 120 --workers 1 --threads 2
