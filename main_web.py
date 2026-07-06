@@ -26,6 +26,7 @@ current_frame = None
 processing_thread = None
 stop_event = threading.Event()
 calibration_results = None
+stats_history = []
 
 print("Loading YOLO model globally...")
 yolo_model = YOLO(MODEL_NAME)
@@ -78,7 +79,7 @@ def run_calibration_scan(video_path):
     return True
 
 def start_processing(video_path):
-    global processing_thread, stop_event, current_frame, current_live_stats
+    global processing_thread, stop_event, current_frame, current_live_stats, stats_history
     if processing_thread is not None and processing_thread.is_alive():
         stop_event.set()
         processing_thread.join()
@@ -95,6 +96,7 @@ def start_processing(video_path):
         "is_warning": False,
         "is_critical": False
     })
+    stats_history.clear()
 
     processing_thread = threading.Thread(target=_process_video_stream_worker, args=(video_path,))
     processing_thread.daemon = True
@@ -223,6 +225,16 @@ def _process_video_stream_worker(video_path):
         current_live_stats["status_text"] = status_text
         current_live_stats["is_warning"] = is_warning if 'is_warning' in locals() else False
         current_live_stats["is_critical"] = is_critical if 'is_critical' in locals() else False
+
+        stats_history.append({
+            "time": time.time(),
+            "frame": frame_count,
+            "total_count": total_count,
+            "avg_speed": round(avg_speed, 2),
+            "chaos_metric": round(chaos_metric, 2),
+            "status": status_text
+        })
+        frame_count += 1
 
         # --- Annotation ---
         # Draw Dynamic Cluster Zones

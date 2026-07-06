@@ -162,6 +162,31 @@ def api_stats():
     except ImportError:
         return jsonify({"error": "Stats not available"}), 503
 
+@app.route('/api/export_csv')
+def export_csv():
+    if not session.get('logged_in'):
+        return jsonify({"error": "Unauthorized"}), 401
+        
+    try:
+        from main_web import stats_history
+        import io
+        import csv
+        
+        si = io.StringIO()
+        cw = csv.writer(si)
+        cw.writerow(['Timestamp', 'Frame', 'Total Count', 'Avg Speed', 'Chaos Metric', 'Status'])
+        for row in stats_history:
+            cw.writerow([row['time'], row['frame'], row['total_count'], row['avg_speed'], row['chaos_metric'], row['status']])
+            
+        output = si.getvalue()
+        return Response(
+            output,
+            mimetype="text/csv",
+            headers={"Content-disposition": "attachment; filename=crowdpulse_analytics.csv"}
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
 
     app.run(debug=True, threaded=True)
