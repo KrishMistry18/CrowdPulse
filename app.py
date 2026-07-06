@@ -126,6 +126,9 @@ def api_stats():
     if not session.get('logged_in'):
         return jsonify({"error": "Unauthorized"}), 401
     
+    if not current_video_path:
+        return jsonify({"error": "No video processed"}), 400
+    
     try:
         from main_web import current_live_stats
         return jsonify(current_live_stats)

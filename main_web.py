@@ -61,6 +61,15 @@ def generate_frames():
 def _process_video_stream_worker(video_path, zone_polygons):
     global current_live_stats, current_frame, stop_event
     
+    # Initialize a loading frame so the browser doesn't wait and time out
+    loading_img = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    cv2.putText(loading_img, "LOADING AI MODEL... PLEASE WAIT", (400, 540), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 255), 4)
+    flag, encoded = cv2.imencode(".jpg", loading_img)
+    if flag:
+        current_frame = bytearray(encoded)
+        
+    current_live_stats["status_text"] = "LOADING AI MODEL..."
+    
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         print(f"Error: Could not open video file at {video_path}")
@@ -75,10 +84,6 @@ def _process_video_stream_worker(video_path, zone_polygons):
     # --- Setup Zones ---
     zones = [sv.PolygonZone(polygon=poly) for poly in zone_polygons]
     
-    custom_colors = [sv.Color.RED, sv.Color.GREEN, sv.Color.BLUE]
-    colors = sv.ColorPalette(colors=custom_colors)
-    
-    zone_annotators = [sv.PolygonZoneAnnotator(zone=zone, color=colors.by_idx(i), thickness=2) for i, zone in enumerate(zones)]
     box_annotator = sv.BoxAnnotator(thickness=2)
     label_annotator = sv.LabelAnnotator(text_scale=0.5, text_position=sv.Position.TOP_CENTER)
     trace_annotator = sv.TraceAnnotator(thickness=2, trace_length=100)
@@ -93,6 +98,7 @@ def _process_video_stream_worker(video_path, zone_polygons):
     baseline_stats = {}
     frame_count = 0
 
+    current_live_stats["status_text"] = "PROCESSING FIRST FRAME..."
     print("--- Starting Video Stream Processing ---")
 
     while cap.isOpened() and not stop_event.is_set():
@@ -177,11 +183,7 @@ def _process_video_stream_worker(video_path, zone_polygons):
                 is_critical = True
                 is_warning = True 
 
-            for i in range(len(zones)):
-                zone_count = current_zone_counts[i]
-                zone_threshold_warn = baseline_stats["zone_means"][i] + 2.5 * baseline_stats["zone_stds"][i]
-                if zone_count > zone_threshold_warn and zone_count > 5: 
-                    is_warning = True
+            # Zone checks are now done dynamically in the rendering loop for individual coloring
 
             if is_warning:
                 status_text = "WARNING"
@@ -190,7 +192,6 @@ def _process_video_stream_worker(video_path, zone_polygons):
                 status_text = "CRITICAL"
                 status_color = (0, 0, 255) 
         
-        global current_live_stats
         current_live_stats["total_count"] = total_count
         current_live_stats["avg_speed"] = avg_speed
         current_live_stats["chaos_metric"] = chaos_metric
@@ -199,12 +200,48 @@ def _process_video_stream_worker(video_path, zone_polygons):
         current_live_stats["is_critical"] = is_critical if 'is_critical' in locals() else False
 
         # --- Annotation ---
-        # Draw Zones
+        # Draw Zones with dynamic colors
         for i, zone in enumerate(zones):
-            annotated_frame = zone_annotators[i].annotate(scene=annotated_frame)
-            count_text = f"Zone {i+1}: {current_zone_counts[i]}"
-            cv2.putText(annotated_frame, count_text, (50, 50 + i*40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,0), 3)
-            cv2.putText(annotated_frame, count_text, (50, 50 + i*40), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+            zone_count = current_zone_counts[i]
+            
+            # Determine dynamic color based on crowding
+            if frame_count < CALIBRATION_FRAMES:
+                zone_color = sv.Color.WHITE # Calibrating
+            else:
+                mean = baseline_stats["zone_means"][i]
+                std = baseline_stats["zone_stds"][i]
+                
+                # Check thresholds
+                threshold_critical = mean + 2.5 * std
+                threshold_medium = mean + 1.5 * std
+                
+                if zone_count > threshold_critical and zone_count > 5:
+                    zone_color = sv.Color.RED
+                    current_live_stats["is_warning"] = True # Escalate system status
+                    status_text = "WARNING (ZONE OVERCROWDED)"
+                    status_color = (0, 255, 255)
+                    current_live_stats["status_text"] = status_text
+                elif zone_count > threshold_medium and zone_count > 3:
+                    zone_color = sv.Color.BLUE
+                else:
+                    zone_color = sv.Color.GREEN
+                    
+            # Draw the zone
+            annotator = sv.PolygonZoneAnnotator(zone=zone, color=zone_color, thickness=4)
+            annotated_frame = annotator.annotate(scene=annotated_frame)
+            
+            # Calculate centroid of the polygon to place the text in the middle of the zone
+            M = cv2.moments(zone.polygon.astype(np.float32))
+            if M["m00"] != 0:
+                cX = int(M["m10"] / M["m00"])
+                cY = int(M["m01"] / M["m00"])
+            else:
+                cX, cY = zone.polygon[0]
+                
+            count_text = f"Zone {i+1}: {zone_count}"
+            bgr_color = zone_color.as_bgr()
+            cv2.putText(annotated_frame, count_text, (cX - 80, cY), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,0), 4)
+            cv2.putText(annotated_frame, count_text, (cX - 80, cY), cv2.FONT_HERSHEY_SIMPLEX, 1, bgr_color, 2)
 
         # Draw Detections
         labels = [f"#{tracker_id}" for tracker_id in tracked_detections.tracker_id] if tracked_detections.tracker_id is not None else []
