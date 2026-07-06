@@ -10,7 +10,7 @@ import scipy.cluster.hierarchy as hcluster
 
 # --- Configuration ---
 MODEL_NAME = 'yolov8m.pt' 
-CALIBRATION_FRAMES = 150 
+CALIBRATION_FRAMES = 15 
 
 current_live_stats = {
     "total_count": 0,
