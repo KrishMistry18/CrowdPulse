@@ -15,7 +15,7 @@ except ImportError:
             return x
     np = DummyNp()
     
-    def start_processing(video_path, zone_polygons):
+    def start_processing(video_path):
         pass
 
     def generate_frames():
@@ -39,7 +39,6 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # --- Global variables to store processing info ---
 current_video_path = None
-current_zone_polygons = None
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -75,24 +74,10 @@ def index():
             video_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(video_path)
             
-            # --- 2. Handle Zone Coordinates ---
-            zone_text = request.form.get('zones')
-            try:
-                # Use ast.literal_eval to safely parse the string as Python code
-
-                zone_list = ast.literal_eval(zone_text)
-                # Convert to NumPy arrays
-                zone_polygons = [np.array(zone) for zone in zone_list]
-            except Exception as e:
-                print(f"Error parsing zones: {e}")
-                return 'Invalid zone format. Must be a list of lists of points.', 400
-
-            # --- 3. Store info and redirect to dashboard ---
-            global current_video_path, current_zone_polygons
+            global current_video_path
             current_video_path = video_path
-            current_zone_polygons = zone_polygons
-            
-            start_processing(video_path, zone_polygons)
+        
+            start_processing(video_path)
             
             return redirect(url_for('dashboard'))
 
@@ -102,7 +87,7 @@ def index():
 def dashboard():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
-    if not current_video_path or not current_zone_polygons:
+    if not current_video_path:
         return 'No video processed. Please upload a video first.', 400
         
     return render_template('dashboard.html')
@@ -111,7 +96,7 @@ def dashboard():
 def video_feed():
     if not session.get('logged_in'):
         return 'Unauthorized', 401
-    if not current_video_path or not current_zone_polygons:
+    if not current_video_path:
         return 'No video configured', 404
 
     # This is the streaming part.

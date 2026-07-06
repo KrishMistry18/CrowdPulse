@@ -98,24 +98,14 @@
                     <!-- 2. Define Hotzones -->
                     <div class="space-y-3">
                         <div class="flex justify-between items-end">
-                            <label for="zones" class="block text-sm font-medium text-gray-300">2. Define Hotzones</label>
-                            <button type="button" id="copy-example" class="text-xs text-gray-400 hover:text-accent transition-colors flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/5">
-                                <i class="fa-regular fa-copy"></i> Copy Example
-                            </button>
+                            <label class="block text-sm font-medium text-gray-300">2. Autonomous Tracking</label>
                         </div>
                         <div class="relative group">
-                            <!-- Line numbers fake background -->
-                            <div class="absolute left-0 top-0 bottom-0 w-10 bg-base-900/80 border-r border-white/5 rounded-l-xl z-0 pointer-events-none flex flex-col pt-4 items-center text-xs text-gray-600 font-mono">
-                                <span>1</span><span>2</span><span>3</span>
+                            <div class="w-full bg-base-900/50 border border-accent/30 rounded-xl text-accent font-mono text-sm py-4 px-4 flex items-center gap-3">
+                                <i class="fa-solid fa-wand-magic-sparkles text-accent"></i>
+                                <span>Dynamic Density Clustering is <strong class="text-white">Enabled</strong>. The system will automatically form zones around large clusters of people.</span>
                             </div>
-                            <textarea id="zones" name="zones" rows="4" required spellcheck="false"
-                                class="w-full bg-base-900/50 border border-white/10 rounded-xl text-accent font-mono text-sm py-4 pr-4 pl-14 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/50 transition-all shadow-inner placeholder-gray-600 resize-y relative z-10 block"
-                            >[
-  [[200, 300], [800, 300], [800, 900], [200, 900]],
-  [[1100, 300], [1700, 300], [1700, 900], [1100, 900]]
-]</textarea>
                         </div>
-                        <p class="text-xs text-gray-500">Provide a Python list of lists representing polygonal regions of interest.</p>
                     </div>
                     
                     <!-- Submit Button -->

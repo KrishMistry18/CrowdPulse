@@ -6,6 +6,7 @@ from collections import defaultdict
 import math
 import threading
 import time
+import scipy.cluster.hierarchy as hcluster
 
 # --- Configuration ---
 MODEL_NAME = 'yolov8m.pt' 
@@ -25,7 +26,7 @@ current_frame = None
 processing_thread = None
 stop_event = threading.Event()
 
-def start_processing(video_path, zone_polygons):
+def start_processing(video_path):
     global processing_thread, stop_event, current_frame, current_live_stats
     if processing_thread is not None and processing_thread.is_alive():
         stop_event.set()
@@ -44,7 +45,7 @@ def start_processing(video_path, zone_polygons):
         "is_critical": False
     })
 
-    processing_thread = threading.Thread(target=_process_video_stream_worker, args=(video_path, zone_polygons))
+    processing_thread = threading.Thread(target=_process_video_stream_worker, args=(video_path,))
     processing_thread.daemon = True
     processing_thread.start()
 
@@ -58,7 +59,7 @@ def generate_frames():
                current_frame + b'\r\n')
         time.sleep(0.03)
 
-def _process_video_stream_worker(video_path, zone_polygons):
+def _process_video_stream_worker(video_path):
     global current_live_stats, current_frame, stop_event
     
     # Initialize a loading frame so the browser doesn't wait and time out
@@ -81,9 +82,7 @@ def _process_video_stream_worker(video_path, zone_polygons):
     model = YOLO(MODEL_NAME)
     tracker = sv.ByteTrack()
 
-    # --- Setup Zones ---
-    zones = [sv.PolygonZone(polygon=poly) for poly in zone_polygons]
-    
+    # Dynamic clusters instead of static zones
     box_annotator = sv.BoxAnnotator(thickness=2)
     label_annotator = sv.LabelAnnotator(text_scale=0.5, text_position=sv.Position.TOP_CENTER)
     trace_annotator = sv.TraceAnnotator(thickness=2, trace_length=100)
@@ -92,7 +91,6 @@ def _process_video_stream_worker(video_path, zone_polygons):
     
     calibration_data = {
         "avg_speeds": [], "total_counts": [],
-        "zone_counts": [[] for _ in zone_polygons],
         "chaos_metrics": [] 
     }
     baseline_stats = {}
@@ -134,10 +132,21 @@ def _process_video_stream_worker(video_path, zone_polygons):
         chaos_metric = np.std(current_angles) if len(current_angles) > 1 else 0.0
         total_count = len(tracked_detections)
         
-        current_zone_counts = []
-        for i, zone in enumerate(zones):
-            mask = zone.trigger(detections=tracked_detections)
-            current_zone_counts.append(np.sum(mask))
+        current_centroids_list = []
+        if tracked_detections.tracker_id is not None:
+            current_centroids_list = tracked_detections.get_anchors_coordinates(anchor=sv.Position.CENTER)
+            
+        # --- Dynamic Clustering ---
+        clusters = {}
+        if len(current_centroids_list) > 1:
+            # Cluster centroids within 200 pixels of each other
+            cluster_ids = hcluster.fclusterdata(current_centroids_list, 200, criterion="distance")
+            for pt, cid in zip(current_centroids_list, cluster_ids):
+                if cid not in clusters:
+                    clusters[cid] = []
+                clusters[cid].append(pt)
+        elif len(current_centroids_list) == 1:
+            clusters[1] = [current_centroids_list[0]]
 
         annotated_frame = frame.copy() 
 
@@ -150,8 +159,10 @@ def _process_video_stream_worker(video_path, zone_polygons):
             calibration_data["avg_speeds"].append(avg_speed)
             calibration_data["total_counts"].append(total_count)
             calibration_data["chaos_metrics"].append(chaos_metric) 
-            for i in range(len(zones)):
-                calibration_data["zone_counts"][i].append(current_zone_counts[i])
+            # Collect data
+            calibration_data["avg_speeds"].append(avg_speed)
+            calibration_data["total_counts"].append(total_count)
+            calibration_data["chaos_metrics"].append(chaos_metric) 
 
             if frame_count == CALIBRATION_FRAMES - 1:
                 # Calculate all baselines
@@ -160,9 +171,7 @@ def _process_video_stream_worker(video_path, zone_polygons):
                 baseline_stats["total_mean"] = np.mean(calibration_data["total_counts"])
                 baseline_stats["total_std"] = np.std(calibration_data["total_counts"])
                 baseline_stats["chaos_mean"] = np.mean(calibration_data["chaos_metrics"]) 
-                baseline_stats["chaos_std"] = np.std(calibration_data["chaos_metrics"])   
-                baseline_stats["zone_means"] = [np.mean(zone_data) if zone_data else 0 for zone_data in calibration_data["zone_counts"]]
-                baseline_stats["zone_stds"] = [np.std(zone_data) if zone_data else 0 for zone_data in calibration_data["zone_counts"]]
+                baseline_stats["chaos_std"] = np.std(calibration_data["chaos_metrics"])
                 print("--- Calibration Complete ---")
         else:
             # --- Prediction Phase ---
@@ -200,48 +209,39 @@ def _process_video_stream_worker(video_path, zone_polygons):
         current_live_stats["is_critical"] = is_critical if 'is_critical' in locals() else False
 
         # --- Annotation ---
-        # Draw Zones with dynamic colors
-        for i, zone in enumerate(zones):
-            zone_count = current_zone_counts[i]
+        # Draw Dynamic Cluster Zones
+        for cid, pts in clusters.items():
+            cluster_count = len(pts)
+            pts_arr = np.array(pts)
+            min_x, min_y = np.min(pts_arr, axis=0) - 40
+            max_x, max_y = np.max(pts_arr, axis=0) + 40
             
-            # Determine dynamic color based on crowding
+            # Bound within frame
+            min_x = max(0, int(min_x))
+            min_y = max(0, int(min_y))
+            max_x = min(frame_width, int(max_x))
+            max_y = min(frame_height, int(max_y))
+            
+            # Determine dynamic color based on absolute crowding
             if frame_count < CALIBRATION_FRAMES:
-                zone_color = sv.Color.WHITE # Calibrating
+                zone_color = (255, 255, 255) # White
             else:
-                mean = baseline_stats["zone_means"][i]
-                std = baseline_stats["zone_stds"][i]
-                
-                # Check thresholds
-                threshold_critical = mean + 2.5 * std
-                threshold_medium = mean + 1.5 * std
-                
-                if zone_count > threshold_critical and zone_count > 5:
-                    zone_color = sv.Color.RED
-                    current_live_stats["is_warning"] = True # Escalate system status
-                    status_text = "WARNING (ZONE OVERCROWDED)"
-                    status_color = (0, 255, 255)
-                    current_live_stats["status_text"] = status_text
-                elif zone_count > threshold_medium and zone_count > 3:
-                    zone_color = sv.Color.BLUE
+                if cluster_count >= 10:
+                    zone_color = (0, 0, 255) # Red
+                    current_live_stats["is_warning"] = True
+                    current_live_stats["status_text"] = "WARNING (CLUSTER OVERCROWDED)"
+                elif cluster_count >= 5:
+                    zone_color = (255, 0, 0) # Blue
                 else:
-                    zone_color = sv.Color.GREEN
+                    zone_color = (0, 255, 0) # Green
                     
-            # Draw the zone
-            annotator = sv.PolygonZoneAnnotator(zone=zone, color=zone_color, thickness=4)
-            annotated_frame = annotator.annotate(scene=annotated_frame)
+            # Draw the dynamic bounding box
+            cv2.rectangle(annotated_frame, (min_x, min_y), (max_x, max_y), zone_color, 4)
             
-            # Calculate centroid of the polygon to place the text in the middle of the zone
-            M = cv2.moments(zone.polygon.astype(np.float32))
-            if M["m00"] != 0:
-                cX = int(M["m10"] / M["m00"])
-                cY = int(M["m01"] / M["m00"])
-            else:
-                cX, cY = zone.polygon[0]
-                
-            count_text = f"Zone {i+1}: {zone_count}"
-            bgr_color = zone_color.as_bgr()
-            cv2.putText(annotated_frame, count_text, (cX - 80, cY), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,0), 4)
-            cv2.putText(annotated_frame, count_text, (cX - 80, cY), cv2.FONT_HERSHEY_SIMPLEX, 1, bgr_color, 2)
+            # Draw the label
+            label_text = f"Group: {cluster_count}"
+            cv2.putText(annotated_frame, label_text, (min_x, max(30, min_y - 10)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,0), 4)
+            cv2.putText(annotated_frame, label_text, (min_x, max(30, min_y - 10)), cv2.FONT_HERSHEY_SIMPLEX, 1, zone_color, 2)
 
         # Draw Detections
         labels = [f"#{tracker_id}" for tracker_id in tracked_detections.tracker_id] if tracked_detections.tracker_id is not None else []
