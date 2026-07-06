@@ -9,7 +9,7 @@ import time
 import scipy.cluster.hierarchy as hcluster
 
 # --- Configuration ---
-MODEL_NAME = 'yolov8m.pt' 
+MODEL_NAME = 'yolov8n.pt' 
 CALIBRATION_FRAMES = 15 
 
 current_live_stats = {
