@@ -94,7 +94,8 @@ def start_processing(video_path):
         "chaos_metric": 0.0,
         "status_text": "WAITING",
         "is_warning": False,
-        "is_critical": False
+        "is_critical": False,
+        "progress": 0
     })
     stats_history.clear()
 
@@ -131,6 +132,9 @@ def _process_video_stream_worker(video_path):
 
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    if total_frames <= 0:
+        total_frames = 1
     
     model = yolo_model
     tracker = sv.ByteTrack()
@@ -264,6 +268,9 @@ def _process_video_stream_worker(video_path):
         current_live_stats["status_text"] = status_text
         current_live_stats["is_warning"] = is_warning if 'is_warning' in locals() else False
         current_live_stats["is_critical"] = is_critical if 'is_critical' in locals() else False
+        
+        progress = int((frame_count / total_frames) * 100)
+        current_live_stats["progress"] = min(99, progress) # Keep at 99 until truly done
 
         stats_history.append({
             "time": time.time(),
@@ -315,6 +322,7 @@ def _process_video_stream_worker(video_path):
         current_live_stats["status_text"] = "PROCESSING COMPLETED"
         current_live_stats["is_warning"] = False
         current_live_stats["is_critical"] = False
+        current_live_stats["progress"] = 100
         
         (flag, encodedImage) = cv2.imencode(".jpg", annotated_frame)
         if flag:

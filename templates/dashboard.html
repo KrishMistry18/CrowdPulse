@@ -157,10 +157,20 @@
                     </div>
                 </div>
 
-                <!-- Action Button -->
-                <div class="mt-auto pt-4">
-                    <a href="/api/export_csv" class="w-full bg-base-800 hover:bg-base-700 text-gray-200 border border-white/10 rounded-xl py-3 px-4 text-sm font-medium transition-all hover:border-white/30 flex items-center justify-center gap-2 group">
-                        <i class="fa-solid fa-download text-gray-400 group-hover:text-accent transition-colors"></i> Export Analytics
+                <!-- Action Button & Progress -->
+                <div class="mt-auto pt-4 flex flex-col gap-3">
+                    <div class="w-full">
+                        <div class="flex justify-between text-xs text-gray-400 mb-1 font-medium">
+                            <span>Processing Progress</span>
+                            <span id="progress-text">0%</span>
+                        </div>
+                        <div class="w-full bg-base-900 rounded-full h-2 border border-white/5 overflow-hidden">
+                            <div id="progress-bar" class="bg-accent h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <a href="/api/export_csv" id="export-btn" class="w-full bg-base-800 text-gray-200 border border-white/10 rounded-xl py-3 px-4 text-sm font-medium transition-all flex items-center justify-center gap-2 group pointer-events-none opacity-50">
+                        <i class="fa-solid fa-download text-gray-400"></i> Export Analytics
                     </a>
                 </div>
             </div>
@@ -196,6 +206,25 @@
                     const chaosStatusText = document.getElementById('chaos-status-text');
 
                     globalStatusText.textContent = "SYSTEM " + data.status_text;
+                    
+                    // Progress Bar Logic
+                    const progress = data.progress || 0;
+                    document.getElementById('progress-text').textContent = progress + '%';
+                    document.getElementById('progress-bar').style.width = progress + '%';
+                    
+                    const exportBtn = document.getElementById('export-btn');
+                    if (progress === 100) {
+                        exportBtn.classList.remove('pointer-events-none', 'opacity-50');
+                        exportBtn.classList.add('hover:bg-base-700', 'hover:border-white/30');
+                        if (!window.processingCompletedAlertShown) {
+                            window.processingCompletedAlertShown = true;
+                            alert("Processing complete! Download the analytical report.");
+                        }
+                    } else {
+                        exportBtn.classList.add('pointer-events-none', 'opacity-50');
+                        exportBtn.classList.remove('hover:bg-base-700', 'hover:border-white/30');
+                        window.processingCompletedAlertShown = false;
+                    }
 
                     // Reset classes
                     globalStatus.className = "px-4 py-2 rounded-full text-sm font-semibold flex items-center gap-2 transition-colors duration-300 ";
