@@ -63,7 +63,7 @@ def run_calibration_scan(video_path):
         if frame_count % FRAME_SKIP != 0:
             continue
             
-        results = model(frame, classes=0, verbose=False, conf=0.25)
+        results = model(frame, classes=0, verbose=False, conf=0.10)
         detections = sv.Detections.from_ultralytics(results[0])
         total_counts.append(len(detections))
         processed_count += 1
@@ -188,7 +188,7 @@ def _process_video_stream_worker(video_path):
             continue
 
         # --- Run Inference ---
-        results = model(frame, classes=0, verbose=False, conf=0.25)
+        results = model(frame, classes=0, verbose=False, conf=0.10)
         detections = sv.Detections.from_ultralytics(results[0])
         tracked_detections = tracker.update_with_detections(detections)
 
