@@ -9,8 +9,9 @@ import time
 import scipy.cluster.hierarchy as hcluster
 
 # --- Configuration ---
-MODEL_NAME = 'yolov8n.pt' 
+MODEL_NAME = 'yolov8m.pt' 
 CALIBRATION_FRAMES = 15 
+FRAME_SKIP = 3
 
 current_live_stats = {
     "total_count": 0,
@@ -52,15 +53,20 @@ def run_calibration_scan(video_path):
     print("--- Starting Background Calibration Scan ---")
         
     frame_count = 0
-    while cap.isOpened() and frame_count < CALIBRATION_FRAMES:
+    processed_count = 0
+    while cap.isOpened() and processed_count < CALIBRATION_FRAMES:
         success, frame = cap.read()
         if not success:
             break
             
-        results = model(frame, classes=0, verbose=False, conf=0.25, imgsz=320)
+        frame_count += 1
+        if frame_count % FRAME_SKIP != 0:
+            continue
+            
+        results = model(frame, classes=0, verbose=False, conf=0.25)
         detections = sv.Detections.from_ultralytics(results[0])
         total_counts.append(len(detections))
-        frame_count += 1
+        processed_count += 1
         
     cap.release()
     
@@ -167,8 +173,22 @@ def _process_video_stream_worker(video_path):
             print("End of video file.")
             break
 
+        frame_count += 1
+        
+        if frame_count % FRAME_SKIP != 0:
+            # Duplicate the last stats history entry for the skipped frame
+            if stats_history:
+                last_stat = stats_history[-1].copy()
+                last_stat["time"] = time.time()
+                last_stat["frame"] = frame_count
+                stats_history.append(last_stat)
+                
+                progress = int((frame_count / total_frames) * 100)
+                current_live_stats["progress"] = min(99, progress)
+            continue
+
         # --- Run Inference ---
-        results = model(frame, classes=0, verbose=False, conf=0.25, imgsz=320)
+        results = model(frame, classes=0, verbose=False, conf=0.25)
         detections = sv.Detections.from_ultralytics(results[0])
         tracked_detections = tracker.update_with_detections(detections)
 
@@ -288,7 +308,6 @@ def _process_video_stream_worker(video_path):
             "green_zones": green_zones,
             "status": status_text
         })
-        frame_count += 1
 
         # (The cluster drawing was moved above)
 
@@ -309,8 +328,6 @@ def _process_video_stream_worker(video_path):
         # Draw Final Status
         cv2.putText(annotated_frame, status_text, (50, frame_height - 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,0), 7, cv2.LINE_AA)
         cv2.putText(annotated_frame, status_text, (50, frame_height - 50), cv2.FONT_HERSHEY_SIMPLEX, 2, status_color, 4, cv2.LINE_AA)
-
-        frame_count += 1 
 
         # Encode the frame as a JPEG
         (flag, encodedImage) = cv2.imencode(".jpg", annotated_frame)
