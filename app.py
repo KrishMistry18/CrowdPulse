@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, Response, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 import ast
 import os
 import threading
@@ -41,6 +42,7 @@ except ImportError:
 
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 app.config['UPLOAD_FOLDER'] = 'uploads/'
 app.secret_key = os.getenv('SECRET_KEY', 'default_secret_key_if_not_set')
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
