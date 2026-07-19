@@ -4,7 +4,7 @@
 
 ### Real-time Crowd Analysis Dashboard
 
-[![Live Demo](https://img.shields.io/badge/🔗%20Live%20Demo-Live%20App-2D6A4F?style=for-the-badge)](https://huggingface.co/spaces/KrishMistry18/CrowdPulse)
+[![Live Demo](https://img.shields.io/badge/🔗%20Live%20Demo-Live%20App-2D6A4F?style=for-the-badge)](https://krishmistry18-crowdpulse.hf.space/)
 [![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![YOLOv8](https://img.shields.io/badge/YOLOv8-00FFFF?style=for-the-badge&logo=ultralytics&logoColor=black)](https://ultralytics.com/)
